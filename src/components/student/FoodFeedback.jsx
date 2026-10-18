@@ -68,7 +68,7 @@ export default function FoodFeedback({ profile }) {
       </div>
 
       <div className="card">
-        <h2>Meri pichli feedbacks</h2>
+        <h2> Previous Feedbacks</h2>
         {rows && rows.length === 0 && <div className="empty">Abhi tak koi feedback nahi.</div>}
         {rows?.map((r) => (
           <div className="item" key={r.id}>

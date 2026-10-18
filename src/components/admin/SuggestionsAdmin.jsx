@@ -78,7 +78,7 @@ export default function SuggestionsAdmin() {
             </tbody>
           </table>
         </div>
-        {loaded && rows.length === 0 && <div className="empty">Koi suggestion nahi mila.</div>}
+        {loaded && rows.length === 0 && <div className="empty">Didn't find any suggestions.</div>}
       </div>
     </>
   );

@@ -40,13 +40,13 @@ export default function Suggestions({ profile }) {
   return (
     <>
       <div className="card">
-        <h2>Koi Suggestion?</h2>
+        <h2> Any Suggestion?</h2>
         <form onSubmit={submit}>
-          <label>Aapka Suggestion</label>
+          <label>Write your Suggestions!!</label>
           <textarea
             required
             maxLength={1500}
-            placeholder="Hostel ko behtar banane ke liye apne idea likhein"
+            placeholder=" Write your suggestions here for making hostel better."
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
@@ -54,8 +54,8 @@ export default function Suggestions({ profile }) {
         </form>
       </div>
       <div className="card">
-        <h2>Mere pichle suggestions</h2>
-        {rows && rows.length === 0 && <div className="empty">Abhi tak koi suggestion nahi.</div>}
+        <h2>My Previous Suggestions</h2>
+        {rows && rows.length === 0 && <div className="empty">Didn't find any suggestions.</div>}
         {rows?.map((s) => (
           <div className="item" key={s.id}>
             <div>{s.message}</div>

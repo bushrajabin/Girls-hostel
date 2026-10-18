@@ -35,7 +35,7 @@ export default function ComplaintForm({ profile, onDone }) {
 
   return (
     <div className="card">
-      <h2>Room ki problem batayein</h2>
+      <h2>Write your problem</h2>
       <form onSubmit={submit}>
         <div className="row">
           <div><label>Student Name</label><input type="text" required {...bind("name")} /></div>
@@ -55,7 +55,7 @@ export default function ComplaintForm({ profile, onDone }) {
         <textarea
           required
           maxLength={1000}
-          placeholder="Problem detail me likhein (e.g. Fan se awaaz aa rahi hai aur ghoom nahi raha)"
+          placeholder="write your problem here (e.g. wifi or electricity issue, etc.)"
           {...bind("description")}
         />
         <button className="btn" type="submit" disabled={busy}>Submit Complaint</button>
