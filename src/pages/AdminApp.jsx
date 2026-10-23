@@ -18,8 +18,8 @@ export default function AdminApp() {
         <Topbar title="🛡 Hostel Admin Panel" />
         <div className="container narrow">
           <div className="card center">
-            <h2>Access nahi hai</h2>
-            <p>Yeh account admin nahi hai. Admin access ke liye warden se contact karein.</p>
+            <h2>Access denied</h2>
+            <p>This account does not have admin access. Please contact the warden to get access.</p>
             <button className="btn" type="button" onClick={signOut}>Logout</button>
             <p className="note"><Link to="/">← Student portal</Link></p>
           </div>
@@ -72,12 +72,12 @@ function Dashboard({ profile }) {
   const [tab, setTab] = useState("complaints");
   const [tick, setTick] = useState(0);
 
-  // Nayi complaint aate hi list refresh
+  // Refresh the list as soon as a new complaint arrives
   useEffect(() => {
     const ch = supabase
       .channel("admin-complaints")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "complaints" }, () => {
-        toast("Nayi complaint aayi 🔔");
+        toast("New complaint received 🔔");
         setTick((t) => t + 1);
       })
       .subscribe();

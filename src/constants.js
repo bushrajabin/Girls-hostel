@@ -13,3 +13,5 @@ export const CATEGORIES = [
 
 export const MEALS = ["Breakfast", "Lunch", "Snacks", "Dinner", "Weekly Overall"];
 export const STATUSES = ["Pending", "In Progress", "Solved"];
+export const FLOORS = ['G', 1, 2];
+export const floorLabel = (f) => (f === 0 ? "Ground floor" : `Floor ${f}`);

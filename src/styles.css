@@ -444,3 +444,41 @@ a {
 .topbar a {
   color: #fff;
 }
+
+/* Credit  */
+.dev-credit {
+  text-align: center;
+  padding: 18px 16px 28px;
+  color: var(--muted);
+  font-size: .85rem;
+}
+.dev-credit a {
+  color: var(--primary, var(--jade));
+  font-weight: 600;
+  text-decoration: none;
+}
+.dev-credit a:hover { text-decoration: underline; }
+
+
+
+/* ---- Floor / caretaker report ---- */
+.floors { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.floor-card { border: 1px solid var(--border, var(--line)); border-radius: 12px; padding: 14px 16px; background: #fff; }
+.floor-card h3 { font-size: 1.05rem; margin-bottom: 2px; }
+.floor-staff { color: var(--muted); font-size: .84rem; margin-bottom: 12px; }
+.floor-nums { display: flex; gap: 18px; }
+.floor-nums span { font-size: .8rem; color: var(--muted); }
+.floor-nums b { display: block; font-size: 1.5rem; line-height: 1.2; color: var(--text); }
+.floor-nums b.ok { color: var(--ok, var(--jade)); }
+.solved-details { margin-top: 6px; font-size: .82rem; }
+.solved-details summary { cursor: pointer; color: var(--primary, var(--jade)); }
+.solved-details ul { margin: 6px 0 0 18px; display: grid; gap: 3px; font-weight: 400; max-height: 160px; overflow-y: auto; }
+
+/* ---- Scrollable complaints list (about 4-5 rows visible) ---- */
+.table-scroll { max-height: 520px; overflow: auto; }
+.table-scroll thead th { position: sticky; top: 0; z-index: 1; }
+
+/* ---- New complaints ---- */
+tr.is-new td { background: #fff8e1; }
+.new-tag { display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 99px; background: #e0a100; color: #fff; font-size: .7rem; font-weight: 700; }
+.new-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 10px 14px; border-radius: 10px; background: #fff3cd; color: #6b4e00; font-size: .9rem; font-weight: 600; }

@@ -1,20 +1,31 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { useToast } from "../Toast";
 import { fmtDate, currentMonth, monthRange, downloadCSV } from "../../utils";
-import { CATEGORIES, STATUSES } from "../../constants";
+import { CATEGORIES, STATUSES, FLOORS, floorLabel } from "../../constants";
 
 const LIMIT = 2000;
-const EMPTY = { month: "", room: "", cat: "", status: "", search: "" };
+const EMPTY = { month: "", room: "", cat: "", status: "", floor: "", search: "" };
+const DAY = 24 * 60 * 60 * 1000;
+
+function fmtDuration(ms) {
+  const h = ms / 36e5;
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))} min`;
+  if (h < 48) return `${h.toFixed(1)} hr`;
+  return `${(h / 24).toFixed(1)} days`;
+}
 
 export default function ComplaintsAdmin({ tick }) {
   const toast = useToast();
   const [f, setF] = useState({ ...EMPTY, month: currentMonth() });
   const [rows, setRows] = useState([]);
+  const [names, setNames] = useState([]); // caretaker names used before (for suggestions)
   const [loaded, setLoaded] = useState(false);
+  const [fresh, setFresh] = useState(() => new Set()); // complaints that arrived while this page was open
+  const lastIds = useRef(null);
 
   const load = useCallback(
-    async (flt) => {
+    async (flt, detectNew = false) => {
       let q = supabase
         .from("complaints")
         .select("*")
@@ -25,24 +36,38 @@ export default function ComplaintsAdmin({ tick }) {
       if (flt.room.trim()) q = q.eq("room_number", flt.room.trim());
       if (flt.cat) q = q.eq("category", flt.cat);
       if (flt.status) q = q.eq("status", flt.status);
+      if (flt.floor !== "") q = q.eq("floor", Number(flt.floor));
       const { data, error } = await q;
       if (error) return toast("Load error: " + error.message, "err");
       const s = flt.search.trim().toLowerCase();
-      setRows(
-        s
-          ? data.filter((c) =>
-              `${c.student_name} ${c.description} ${c.category}`.toLowerCase().includes(s)
-            )
-          : data
-      );
+      const list = s
+        ? data.filter((c) =>
+            `${c.student_name} ${c.description} ${c.category}`.toLowerCase().includes(s)
+          )
+        : data;
+      // Flag complaints that were not in the list before (only on live refresh)
+      if (detectNew && lastIds.current) {
+        const added = list.filter((c) => !lastIds.current.has(c.id)).map((c) => c.id);
+        if (added.length) setFresh((prev) => new Set([...prev, ...added]));
+      }
+      lastIds.current = new Set(list.map((c) => c.id));
+      setNames((prev) => {
+        const m = new Map(prev.map((n) => [n.toLowerCase(), n]));
+        data.forEach((c) => {
+          const n = (c.resolved_by_name || "").trim();
+          if (n && !m.has(n.toLowerCase())) m.set(n.toLowerCase(), n);
+        });
+        return [...m.values()].sort();
+      });
+      setRows(list);
       setLoaded(true);
     },
     [toast]
   );
 
-  // pehli baar aur nayi complaint aane par (tick) reload
+  // first load, and reload whenever a new complaint arrives (tick)
   useEffect(() => {
-    load(f);
+    load(f, tick > 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick]);
 
@@ -64,6 +89,67 @@ export default function ComplaintsAdmin({ tick }) {
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
   }, [rows]);
 
+  // ---- Floor-wise and caretaker-wise report (follows the filters above) ----
+  const report = useMemo(() => {
+    const clean = (n) => (n || "").trim();
+    const floorNums = [
+      ...new Set([...FLOORS, ...rows.map((c) => c.floor).filter((x) => x != null)]),
+    ].sort((a, b) => a - b);
+
+    const floors = floorNums.map((fl) => {
+      const list = rows.filter((c) => c.floor === fl);
+      const solved = list.filter((c) => c.status === "Solved");
+      const who = new Map();
+      solved.forEach((c) => {
+        const n = clean(c.resolved_by_name);
+        if (n && !who.has(n.toLowerCase())) who.set(n.toLowerCase(), n);
+      });
+      return {
+        floor: fl,
+        total: list.length,
+        open: list.length - solved.length,
+        solved: solved.length,
+        who: [...who.values()],
+      };
+    });
+
+    // Group by the typed name (Ayesha / ayesha count as the same person)
+    const byKey = new Map();
+    rows
+      .filter((c) => c.status === "Solved")
+      .forEach((c) => {
+        const n = clean(c.resolved_by_name);
+        const key = n ? n.toLowerCase() : "legacy";
+        if (!byKey.has(key)) {
+          byKey.set(key, {
+            key,
+            name: n || "No record (older complaints)",
+            floors: new Set(),
+            list: [],
+          });
+        }
+        const person = byKey.get(key);
+        person.list.push(c);
+        if (c.floor != null) person.floors.add(c.floor);
+      });
+
+    const people = [...byKey.values()]
+      .map((p) => {
+        const times = p.list
+          .filter((c) => c.resolved_at)
+          .map((c) => new Date(c.resolved_at) - new Date(c.created_at));
+        return {
+          ...p,
+          floors: [...p.floors].sort((a, b) => a - b),
+          count: p.list.length,
+          avg: times.length ? times.reduce((a, b) => a + b, 0) / times.length : null,
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    return { floors, people };
+  }, [rows]);
+
   function reset() {
     setF(EMPTY);
     load(EMPTY);
@@ -77,15 +163,17 @@ export default function ComplaintsAdmin({ tick }) {
         Date: fmtDate(c.created_at),
         Student: c.student_name,
         Room: c.room_number,
+        Floor: c.floor ?? "",
         Contact: c.contact,
         Category: c.category,
         Description: c.description,
         Status: c.status,
         Remarks: c.admin_remarks || "",
         Solved_On: c.resolved_at ? fmtDate(c.resolved_at) : "",
+        Solved_By: c.resolved_by_name || "",
       }))
     );
-    if (!ok) toast("Export ke liye data nahi hai", "err");
+    if (!ok) toast("No data to export", "err");
   }
 
   return (
@@ -104,6 +192,13 @@ export default function ComplaintsAdmin({ tick }) {
           onSubmit={(e) => { e.preventDefault(); load(f); }}
         >
           <div><label>Month</label><input type="month" value={f.month} onChange={set("month")} /></div>
+          <div>
+            <label>Floor</label>
+            <select value={f.floor} onChange={set("floor")}>
+              <option value="">All floors</option>
+              {FLOORS.map((x) => <option key={x} value={x}>{floorLabel(x)}</option>)}
+            </select>
+          </div>
           <div><label>Room No.</label><input type="text" placeholder="e.g. 204" value={f.room} onChange={set("room")} /></div>
           <div>
             <label>Category</label>
@@ -119,7 +214,7 @@ export default function ComplaintsAdmin({ tick }) {
               {STATUSES.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
-          <div><label>Search</label><input type="text" placeholder="naam / description" value={f.search} onChange={set("search")} /></div>
+          <div><label>Search</label><input type="text" placeholder="name / description" value={f.search} onChange={set("search")} /></div>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn small" type="submit">Apply</button>
             <button className="btn small ghost" type="button" onClick={reset}>Reset</button>
@@ -133,8 +228,86 @@ export default function ComplaintsAdmin({ tick }) {
         </div>
       </div>
 
+      {/* ===== Floor-wise + caretaker-wise report ===== */}
       <div className="card">
+        <h2>Floor-wise and caretaker-wise report</h2>
+        <p className="note" style={{ marginTop: 0, marginBottom: 14 }}>
+          Based on the filters above. Pick a Month for a monthly report, or press Reset to see all records.
+        </p>
+
+        <div className="floors">
+          {report.floors.map((fl) => (
+            <div className="floor-card" key={fl.floor}>
+              <h3>{floorLabel(fl.floor)}</h3>
+              <p className="floor-staff">
+                Solved by: {fl.who.length ? fl.who.join(", ") : "no one yet"}
+              </p>
+              <div className="floor-nums">
+                <span><b>{fl.total}</b>total</span>
+                <span><b>{fl.open}</b>open</span>
+                <span><b className="ok">{fl.solved}</b>solved</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="table-wrap">
+          <table style={{ minWidth: 560 }}>
+            <thead>
+              <tr><th>Caretaker</th><th>Floors</th><th>Problems solved</th><th>Average time</th></tr>
+            </thead>
+            <tbody>
+              {report.people.length === 0 && (
+                <tr><td colSpan={4} className="empty">No complaints solved in this view yet.</td></tr>
+              )}
+              {report.people.map((p) => (
+                <tr key={p.key}>
+                  <td>
+                    <b>{p.name}</b>
+                    {p.count > 0 && (
+                      <details className="solved-details">
+                        <summary>Problems solved</summary>
+                        <ul>
+                          {p.list.map((c) => (
+                            <li key={c.id}>
+                              #{c.ticket_no}, Room {c.room_number}, {c.category} ({fmtDate(c.resolved_at)})
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </td>
+                  <td>{p.floors.length ? p.floors.map(floorLabel).join(", ") : "-"}</td>
+                  <td><b>{p.count}</b></td>
+                  <td>{p.avg != null ? fmtDuration(p.avg) : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <datalist id="caretaker-names">
+        {names.map((n) => <option key={n} value={n} />)}
+      </datalist>
+
+      <div className="card">
+        {fresh.size > 0 && (
+          <div className="new-banner">
+            <span>
+              {fresh.size} new complaint{fresh.size > 1 ? "s" : ""} just arrived (highlighted below).
+            </span>
+            <button className="btn small ghost" type="button" onClick={() => setFresh(new Set())}>
+              Dismiss
+            </button>
+          </div>
+        )}
+        {rows.length > 5 && (
+          <p className="note" style={{ marginTop: 0, marginBottom: 10 }}>
+            {rows.length} complaints. Scroll inside the list to see more.
+          </p>
+        )}
+        <div className="table-wrap table-scroll">
           <table>
             <thead>
               <tr>
@@ -144,44 +317,59 @@ export default function ComplaintsAdmin({ tick }) {
             </thead>
             <tbody>
               {rows.map((c) => (
-                <ComplaintRow key={c.id + c.updated_at} c={c} onSaved={() => load(f)} />
+                <ComplaintRow
+                  key={c.id + c.updated_at}
+                  c={c}
+                  isNew={fresh.has(c.id) || (c.status === "Pending" && Date.now() - new Date(c.created_at) < DAY)}
+                  onSaved={() => load(f)}
+                />
               ))}
             </tbody>
           </table>
         </div>
-        {loaded && rows.length === 0 && <div className="empty">Koi complaint nahi mili.</div>}
+        {loaded && rows.length === 0 && <div className="empty">No complaints found.</div>}
       </div>
     </>
   );
 }
 
-function ComplaintRow({ c, onSaved }) {
+function ComplaintRow({ c, isNew, onSaved }) {
   const toast = useToast();
   const [status, setStatus] = useState(c.status);
   const [remarks, setRemarks] = useState(c.admin_remarks || "");
+  const [solver, setSolver] = useState("");
   const [busy, setBusy] = useState(false);
+  // Marking a complaint Solved for the first time needs the caretaker's name
+  const solving = status === "Solved" && c.status !== "Solved";
 
   async function save() {
+    if (solving && !solver.trim()) {
+      return toast("Enter the caretaker's name to mark this as Solved", "err");
+    }
     setBusy(true);
-    const { error } = await supabase
-      .from("complaints")
-      .update({ status, admin_remarks: remarks.trim() || null })
-      .eq("id", c.id);
+    const patch = { status, admin_remarks: remarks.trim() || null };
+    if (solving) patch.resolved_by_name = solver.trim().replace(/\s+/g, " ");
+    const { error } = await supabase.from("complaints").update(patch).eq("id", c.id);
     setBusy(false);
     if (error) return toast("Update failed: " + error.message, "err");
-    toast("Status update ho gaya ✅");
+    toast("Status updated");
     onSaved();
   }
 
   return (
-    <tr>
-      <td>{c.ticket_no}</td>
+    <tr className={isNew ? "is-new" : undefined}>
+      <td>
+        {c.ticket_no}
+        {isNew && <><br /><span className="new-tag">New</span></>}
+      </td>
       <td>
         {fmtDate(c.created_at)}
         {c.resolved_at && <><br /><small className="meta">Solved: {fmtDate(c.resolved_at)}</small></>}
       </td>
       <td>
-        <b>{c.student_name}</b><br />Room {c.room_number}<br /><small>{c.contact}</small>
+        <b>{c.student_name}</b><br />
+        Room {c.room_number}{c.floor != null && <> ({floorLabel(c.floor)})</>}
+        <br /><small>{c.contact}</small>
       </td>
       <td>{c.category}</td>
       <td className="desc">{c.description}</td>
@@ -189,6 +377,22 @@ function ComplaintRow({ c, onSaved }) {
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
           {STATUSES.map((s) => <option key={s}>{s}</option>)}
         </select>
+        {solving && (
+          <input
+            type="text"
+            list="caretaker-names"
+            maxLength={60}
+            placeholder="Your name (required)"
+            value={solver}
+            onChange={(e) => setSolver(e.target.value)}
+            style={{ marginTop: 6 }}
+          />
+        )}
+        {c.status === "Solved" && c.resolved_by_name && (
+          <small className="meta" style={{ display: "block", marginTop: 4 }}>
+            Solved by {c.resolved_by_name}
+          </small>
+        )}
       </td>
       <td>
         <input type="text" maxLength={300} placeholder="Note (optional)" value={remarks} onChange={(e) => setRemarks(e.target.value)} />

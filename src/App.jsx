@@ -7,7 +7,9 @@ import { configured } from "./supabaseClient";
 export default function App() {
   if (!configured) return <ConfigWarning />;
   return (
+
     <Routes>
+
       <Route path="/" element={<StudentApp />} />
       <Route path="/admin" element={<AdminApp />} />
       <Route path="*" element={<Navigate to="/" replace />} />
