@@ -57,7 +57,7 @@ function CompleteProfile({ profile }) {
 
   return (
     <>
-      <Topbar title="🏠 Girls Hostel Portal" />
+      <Topbar title="Girls Hostel Portal" />
       <div className="container narrow">
         <div className="card">
           <h2>Bas ek step aur</h2>
