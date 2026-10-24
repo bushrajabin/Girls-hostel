@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
 import { PageLoader, Tabs, Topbar, useForm } from "../components/Common";
 import ComplaintsAdmin from "../components/admin/ComplaintsAdmin";
+import ReportAdmin from "../components/admin/ReportAdmin";
 import FoodAdmin from "../components/admin/FoodAdmin";
 import SuggestionsAdmin from "../components/admin/SuggestionsAdmin";
 
@@ -66,13 +67,23 @@ function AdminLogin() {
   );
 }
 
+// Same tabs as before, but each tab is now its own page (its own link)
+const TABS = [
+  ["/admin", "🛠 Complaints"],
+  ["/admin/report", "📊 Floor Report"],
+  ["/admin/food", "🍽 Food Feedback"],
+  ["/admin/suggestions", "💡 Suggestions"],
+];
+
 function Dashboard({ profile }) {
   const { signOut } = useAuth();
   const toast = useToast();
-  const [tab, setTab] = useState("complaints");
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const current = pathname.replace(/\/+$/, "") || "/admin";
   const [tick, setTick] = useState(0);
 
-  // Refresh the list as soon as a new complaint arrives
+  // Refresh the list as soon as a new complaint arrives (works on every page)
   useEffect(() => {
     const ch = supabase
       .channel("admin-complaints")
@@ -93,18 +104,14 @@ function Dashboard({ profile }) {
         <button className="btn" type="button" onClick={signOut}>Logout</button>
       </Topbar>
       <div className="container">
-        <Tabs
-          tabs={[
-            ["complaints", "🛠 Complaints"],
-            ["food", "🍽 Food Feedback"],
-            ["sugg", "💡 Suggestions"],
-          ]}
-          value={tab}
-          onChange={setTab}
-        />
-        {tab === "complaints" && <ComplaintsAdmin tick={tick} />}
-        {tab === "food" && <FoodAdmin />}
-        {tab === "sugg" && <SuggestionsAdmin />}
+        <Tabs tabs={TABS} value={current} onChange={(to) => navigate(to)} />
+        <Routes>
+          <Route index element={<ComplaintsAdmin tick={tick} />} />
+          <Route path="report" element={<ReportAdmin />} />
+          <Route path="food" element={<FoodAdmin />} />
+          <Route path="suggestions" element={<SuggestionsAdmin />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Routes>
       </div>
     </>
   );
