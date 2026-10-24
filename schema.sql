@@ -167,8 +167,12 @@ create policy "sugg: read own or admin" on public.suggestions
 alter publication supabase_realtime add table public.complaints;
 
 -- ---------- 5. ADMIN BANANE KA TARIKA --------------------------------
--- Pehle admin/warden se normal signup karwayein (index.html se), phir yeh chalayein:
---
+
 --   update public.profiles
 --   set role = 'admin'
 --   where id = (select id from auth.users where email = 'warden@example.com');
+
+
+-- for removing every data from the web this query i've to runn
+
+-- truncate table public.complaints, public.food_feedback, public.suggestions restart identity;
