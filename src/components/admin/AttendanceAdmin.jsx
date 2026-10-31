@@ -15,7 +15,7 @@ export default function AttendanceAdmin() {
   const [floor, setFloor] = useState("");
   const [search, setSearch] = useState("");
   const [students, setStudents] = useState([]);
-  const [saved, setSaved] = useState({});   // status already in the database
+  const [saved, setSaved] = useState({});   // status already in the database (LOCKED)
   const [marks, setMarks] = useState({});   // status currently on screen
   const [names, setNames] = useState([]);
   const [who, setWho] = useState(() => {
@@ -61,8 +61,14 @@ export default function AttendanceAdmin() {
     return c;
   }, [visible, marks]);
 
-  const dirty = visible.filter((x) => marks[x.id] && marks[x.id] !== saved[x.id]);
-  const set = (id, st) => setMarks((p) => ({ ...p, [id]: p[id] === st ? undefined : st }));
+  // Only brand-new marks (not already saved in the database)
+  const dirty = visible.filter((x) => marks[x.id] && !saved[x.id]);
+
+  // Already saved students cannot be changed
+  const set = (id, st) => {
+    if (saved[id]) return;
+    setMarks((p) => ({ ...p, [id]: p[id] === st ? undefined : st }));
+  };
 
   function fillPresent() {
     setMarks((p) => {
@@ -84,11 +90,14 @@ export default function AttendanceAdmin() {
       status: marks[x.id],
       marked_by_name: name,
     }));
-    const { error: err } = await supabase.from("attendance").upsert(rows, { onConflict: "student_id,att_date" });
+    // ignoreDuplicates: agar kisi aur ne beech mein mark kar diya ho to purani entry overwrite nahi hogi
+    const { error: err } = await supabase
+      .from("attendance")
+      .upsert(rows, { onConflict: "student_id,att_date", ignoreDuplicates: true });
     setBusy(false);
     if (err) return toast("Save failed: " + err.message, "err");
     try { localStorage.setItem(NAME_KEY, name); } catch { /* ignore */ }
-    toast(`Attendance saved for ${rows.length} student${rows.length > 1 ? "s" : ""}`, "ok");
+    toast(`Attendance saved for ${rows.length} student${rows.length > 1 ? "s" : ""}. Ab edit nahi hoga.`, "ok");
     load();
   }
 
@@ -159,7 +168,7 @@ export default function AttendanceAdmin() {
           </button>
         </div>
         <p className="note">
-          Tap Present / Absent / Leave for each student, then Save. Already saved days can be corrected and saved again.
+          Tap Present / Absent / Leave for each student, then Save. Ek baar save hone ke baad attendance edit nahi ho sakti (🔒).
         </p>
       </div>
 
@@ -175,28 +184,33 @@ export default function AttendanceAdmin() {
               <tr><th>Room</th><th>Student</th><th>Floor</th><th>Attendance</th></tr>
             </thead>
             <tbody>
-              {visible.map((x) => (
-                <tr key={x.id} className={marks[x.id] && marks[x.id] !== saved[x.id] ? "is-new" : undefined}>
-                  <td><b>{x.room_number}</b></td>
-                  <td>{x.name}</td>
-                  <td>{floorLabel(x.floor)}</td>
-                  <td>
-                    <div className="att-toggle">
-                      {ATT_STATUSES.map((st) => (
-                        <button
-                          key={st}
-                          type="button"
-                          className={`${CLS[st]} ${marks[x.id] === st ? "on" : ""}`}
-                          onClick={() => set(x.id, st)}
-                        >
-                          {st}
-                        </button>
-                      ))}
-                    </div>
-                    {saved[x.id] && marks[x.id] === saved[x.id] && <small className="meta"> ✓ saved</small>}
-                  </td>
-                </tr>
-              ))}
+              {visible.map((x) => {
+                const locked = !!saved[x.id];
+                return (
+                  <tr key={x.id} className={marks[x.id] && !locked ? "is-new" : undefined}>
+                    <td><b>{x.room_number}</b></td>
+                    <td>{x.name}</td>
+                    <td>{floorLabel(x.floor)}</td>
+                    <td>
+                      <div className="att-toggle" style={locked ? { opacity: 0.75 } : undefined}>
+                        {ATT_STATUSES.map((st) => (
+                          <button
+                            key={st}
+                            type="button"
+                            disabled={locked}
+                            style={locked ? { cursor: "not-allowed" } : undefined}
+                            className={`${CLS[st]} ${marks[x.id] === st ? "on" : ""}`}
+                            onClick={() => set(x.id, st)}
+                          >
+                            {st}
+                          </button>
+                        ))}
+                      </div>
+                      {locked && <small className="meta"> 🔒 saved</small>}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
