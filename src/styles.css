@@ -625,3 +625,53 @@ tr.is-new td {
   text-align: right;
   margin-top: 6px;
 }
+
+
+
+
+
+/* ---- Attendance ---- */
+.stats.s5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 700px) {
+  .stats.s5 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.att-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.att-toggle button {
+  border: 0;
+  background: #fff;
+  color: var(--text);
+  padding: 7px 14px;
+  font-size: .82rem;
+  cursor: pointer;
+}
+
+.att-toggle button+button {
+  border-left: 1px solid var(--border);
+}
+
+.att-toggle button.p.on {
+  background: var(--ok);
+  color: #fff;
+}
+
+.att-toggle button.a.on {
+  background: var(--err);
+  color: #fff;
+}
+
+.att-toggle button.l.on {
+  background: var(--warn);
+  color: #fff;
+}

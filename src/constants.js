@@ -1,3 +1,6 @@
+// Hostel ka naam sirf yahan badalna hai
+export const HOSTEL_NAME = "MANUU Girl Hostel";
+
 export const CATEGORIES = [
   "Fan not working",
   "Light / Bulb issue",
@@ -13,5 +16,8 @@ export const CATEGORIES = [
 
 export const MEALS = ["Breakfast", "Lunch", "Snacks", "Dinner", "Weekly Overall"];
 export const STATUSES = ["Pending", "In Progress", "Solved"];
+
 export const FLOORS = [0, 1, 2];
 export const floorLabel = (f) => (f === 0 ? "Floor G" : `Floor ${f}`);
+
+export const ATT_STATUSES = ["Present", "Absent", "Leave"];

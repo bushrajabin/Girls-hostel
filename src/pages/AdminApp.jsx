@@ -8,6 +8,9 @@ import ComplaintsAdmin from "../components/admin/ComplaintsAdmin";
 import ReportAdmin from "../components/admin/ReportAdmin";
 import FoodAdmin from "../components/admin/FoodAdmin";
 import SuggestionsAdmin from "../components/admin/SuggestionsAdmin";
+import AttendanceAdmin from "../components/admin/AttendanceAdmin";
+import AttendanceReport from "../components/admin/AttendanceReport";
+import StudentsAdmin from "../components/admin/StudentsAdmin";
 
 export default function AdminApp() {
   const { loading, profile, signOut } = useAuth();
@@ -73,6 +76,9 @@ const TABS = [
   ["/admin/report", "📊 Floor Report"],
   ["/admin/food", "🍽 Food Feedback"],
   ["/admin/suggestions", "💡 Suggestions"],
+  ["/admin/attendance", "✅ Attendance"],
+  ["/admin/attendance-report", "📅 Attendance Report"],
+  ["/admin/students", "👩‍🎓 Students"],
 ];
 
 function Dashboard({ profile }) {
@@ -110,6 +116,9 @@ function Dashboard({ profile }) {
           <Route path="report" element={<ReportAdmin />} />
           <Route path="food" element={<FoodAdmin />} />
           <Route path="suggestions" element={<SuggestionsAdmin />} />
+          <Route path="attendance" element={<AttendanceAdmin />} />
+          <Route path="attendance-report" element={<AttendanceReport />} />
+          <Route path="students" element={<StudentsAdmin />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </div>

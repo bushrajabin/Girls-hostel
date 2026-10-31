@@ -37,3 +37,50 @@ export function downloadCSV(filename, rows) {
   URL.revokeObjectURL(a.href);
   return true;
 }
+
+// Supabase returns max 1000 rows per request: this keeps fetching until all rows are in.
+// makeQuery() must return a fresh query each time (with a stable .order()).
+export async function fetchAll(makeQuery, size = 1000) {
+  const all = [];
+  for (let from = 0; ; from += size) {
+    const { data, error } = await makeQuery().range(from, from + size - 1);
+    if (error) return { data: null, error };
+    all.push(...data);
+    if (data.length < size) break;
+  }
+  return { data: all, error: null };
+}
+
+// Small CSV parser (quotes, commas, newlines). Returns array of arrays.
+export function parseCSV(text) {
+  const rows = [];
+  let row = [], cell = "", q = false;
+  const src = text.replace(/^﻿/, "");
+  // Excel in some regions saves with ; or tab
+  const first = src.split(/\r?\n/, 1)[0] || "";
+  const sep = first.includes("\t") ? "\t" : first.split(";").length > first.split(",").length ? ";" : ",";
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (q) {
+      if (c === '"' && src[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') q = false;
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === sep) { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && src[i + 1] === "\n") i++;
+      row.push(cell); cell = "";
+      if (row.some((x) => x.trim() !== "")) rows.push(row);
+      row = [];
+    } else cell += c;
+  }
+  row.push(cell);
+  if (row.some((x) => x.trim() !== "")) rows.push(row);
+  return rows;
+}
+
+// Sort students: floor, then room (numeric), then name
+export const byRoom = (a, b) =>
+  (a.floor ?? -1) - (b.floor ?? -1) ||
+  String(a.room_number).localeCompare(String(b.room_number), undefined, { numeric: true }) ||
+  String(a.name).localeCompare(String(b.name));
